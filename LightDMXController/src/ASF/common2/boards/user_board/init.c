@@ -25,4 +25,19 @@ void system_board_init(void)
 	 * for, e.g., the I/O pins. The initialization can rely on application-
 	 * specific board configuration, found in conf_board.h.
 	 */
+	
+	// for LEDs
+	ioport_set_pin_dir(LED_RED_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(LED_GREEN_PIN, IOPORT_DIR_OUTPUT);
+	// LED Test
+	ioport_set_pin_level(LED_RED_PIN, LED_ACTIVE);
+	ioport_set_pin_level(LED_GREEN_PIN, LED_ACTIVE);
+		
+	// for Debug Pins
+	ioport_set_pin_dir(DEBUG0_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(DEBUG1_PIN, IOPORT_DIR_OUTPUT);
+		
+	ioport_set_pin_level(DEBUG0_PIN, LOW);
+	ioport_set_pin_level(DEBUG1_PIN, LOW);
+		
 }
