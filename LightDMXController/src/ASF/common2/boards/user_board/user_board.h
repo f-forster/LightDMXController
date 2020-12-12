@@ -46,10 +46,12 @@ void system_board_init(void);
 
 /** \name Debug Pins definitions (also SERCOM3)
  *  @{ */
+	 /*
 #define DEBUG0_PIN				PIN_PA08
 #define DEBUG1_PIN				PIN_PA09
 #define DEBUG2_PIN				PIN_PA10
 #define DEBUG3_PIN				PIN_PA11
+*/
 
 /** @} */
 

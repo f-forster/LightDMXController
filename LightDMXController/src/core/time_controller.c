@@ -120,8 +120,6 @@ void tc_callback_increment_timebase (struct tc_module *const module_inst)
 */
 void tc_callback_dmx_output_cycle (struct tc_module *const module_inst)
 {
-	ioport_set_pin_level(DEBUG0_PIN, HIGH); // DEBUG
-	
 	// ISR feuert mit ca 33Hz und stößt den DMX-Output Task an
 	
 	// We should switch context so the ISR returns to a different task.
@@ -129,8 +127,6 @@ void tc_callback_dmx_output_cycle (struct tc_module *const module_inst)
 	// the documentation and examples for your port.
 	// see https://www.freertos.org/taskresumefromisr.html
 	portYIELD_FROM_ISR(xTaskResumeFromISR(DMXOutputTaskHandle));
-	
-	ioport_set_pin_level(DEBUG0_PIN, LOW); // DEBUG
 }
 
 // -------------------------------------------------------------------------------------------------

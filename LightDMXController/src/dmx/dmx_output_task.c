@@ -79,7 +79,6 @@ void DMX_Output_Task (void* param)
 	while (1) {
 		// Suspend on entry
 		vTaskSuspend(NULL);
-		ioport_set_pin_level(DEBUG1_PIN, HIGH);
 		// -> Task resumed from Timer ISR
 		rocBits = xEventGroupGetBits(*pRenderOutputCycleEventgroup);
 		if (rocBits & ROC_RUNNING) {
@@ -134,7 +133,6 @@ void DMX_Output_Task (void* param)
 			
 		}
 		
-		ioport_set_pin_level(DEBUG1_PIN, LOW);
 	}
  
 }
