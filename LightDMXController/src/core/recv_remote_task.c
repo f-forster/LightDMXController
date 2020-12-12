@@ -6,6 +6,7 @@
  */ 
 #include <asf.h>
 #include "core/recv_remote_task.h"
+#include "core/LT89xx.h"
 #include "dmx/dmx_output_task.h"
 #include "common/dbg_tools.h"
 
@@ -23,7 +24,7 @@
 // Prototypes (local for access control)
 // -------------------------------------------------------------------------------------------------
 
-// -------------------------------------------------------------------------------------------------
+void _RemoteSetup(void);
 
 // -------------------------------------------------------------------------------------------------
 /*
@@ -34,9 +35,19 @@ void Recv_Remote_Task(void* param)
 {
 	QueueHandle_t* pRemoteCommandQueue = (QueueHandle_t*)param;
 	
+	_RemoteSetup();
+	
 	while (1)
 	{
 		
 		
 	}
+}
+
+
+void _RemoteSetup(void)
+{
+	LT89XX_Init();
+	
+	
 }

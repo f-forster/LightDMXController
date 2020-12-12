@@ -31,7 +31,6 @@ int main (void)
 	// Init of Timer Counter Module
 	TC_Init();
 	
-	
 	// 5th
 	// Tasker Initialisation
 	Taskhost_Start();

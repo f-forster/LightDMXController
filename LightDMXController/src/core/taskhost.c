@@ -65,13 +65,12 @@ void	Taskhost_Start(void)
 		tskIDLE_PRIORITY,
 		&StatusLedTaskHandle);
 	
-	/*
 	xTaskCreate(Recv_Remote_Task,
 		(const char *)"remote",
 		configMINIMAL_STACK_SIZE,
 		pRemoteCmdQ,
 		tskIDLE_PRIORITY+1,
-		&RecvRemoteTaskHandle); */
+		&RecvRemoteTaskHandle);
 	
 	xTaskCreate(Programs_Task,
 		(const char *)"prog",
