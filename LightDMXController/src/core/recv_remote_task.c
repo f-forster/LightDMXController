@@ -25,6 +25,7 @@
 // -------------------------------------------------------------------------------------------------
 
 void _RemoteSetup(void);
+void _FetchDataCallback(void);
 
 // -------------------------------------------------------------------------------------------------
 /*
@@ -39,7 +40,7 @@ void Recv_Remote_Task(void* param)
 	
 	while (1)
 	{
-		
+		// Wait for Eventgroup bit and process data
 		
 	}
 }
@@ -48,6 +49,16 @@ void Recv_Remote_Task(void* param)
 void _RemoteSetup(void)
 {
 	LT89XX_Init();
+	LT89XX_StartListening();
+	LT89XX_Register_PKT_Callback(_FetchDataCallback);
 	
+	
+}
+
+
+
+void _FetchDataCallback(void)
+{
+	// Set Eventgroup bit
 	
 }

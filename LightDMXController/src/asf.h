@@ -69,6 +69,10 @@
 // From module: EEPROM Emulator Service
 #include <eeprom.h>
 
+// From module: EXTINT - External Interrupt (Callback APIs)
+#include <extint.h>
+#include <extint_callback.h>
+
 // From module: FreeRTOS - kernel 10.0.0
 #include <FreeRTOS.h>
 #include <StackMacros.h>

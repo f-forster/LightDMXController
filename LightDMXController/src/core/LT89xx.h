@@ -11,8 +11,11 @@
 #define LT89XX_H_
 
 #define LT89XX_PIN_CS				PIN_PA10
-#define LT89XX_PIN_PKT_IRQ			PIN_PA23
-#define LT89XX_PIN_RESET			PIN_PA23
+
+#define LT89XX_PIN_RESET			PIN_PA22
+#define LT89XX_PKT_IRQ_PIN			PIN_PA23A_EIC_EXTINT7
+#define LT89XX_PKT_IRQ_MUX			MUX_PA23A_EIC_EXTINT7
+#define LT89XX_PKT_IRQ_EIC_LINE		7
 
 #define LT89XX_SERCOM_MUX_SETTING	SPI_SIGNAL_MUX_SETTING_D 
 									/* SPI_SIGNAL_MUX_SETTING_D: 
@@ -25,6 +28,7 @@
 #define LT89XX_SERCOM_SPI_MODULE	SERCOM2
 
 
+
 typedef enum 
 {
 	LT89XX_1MBPS,
@@ -34,9 +38,20 @@ typedef enum
 	
 } LT89XX_Datarate;
 
+typedef void(* tRecvCallback)(void);
 
 void LT89XX_Init(void);
+void LT89XX_Register_PKT_Callback(const tRecvCallback cb);
+void LT89XX_SetChannel(uint8_t channel);
 
+void LT89XX_SetDataRate(LT89XX_Datarate datarate);
+void LT89XX_SetSyncWord(uint64_t syncword);
+void LT89XX_StartListening(void);
+
+void LT89XX_SetPowerAndGain(uint8_t txPower, uint8_t rxGain); // TBD
+void LT89XX_StopListening(void); // TBD
+void LT89XX_Read(void); // TBD
+void LT89XX_Write(void); // TBD
 
 
 
