@@ -12,7 +12,7 @@
 
 #define LT89XX_PIN_CS				PIN_PA10
 
-#define LT89XX_PIN_RESET			PIN_PA22
+#define LT89XX_PIN_RESET			PIN_PA19
 #define LT89XX_PKT_IRQ_PIN			PIN_PA23A_EIC_EXTINT7
 #define LT89XX_PKT_IRQ_MUX			MUX_PA23A_EIC_EXTINT7
 #define LT89XX_PKT_IRQ_EIC_LINE		7
@@ -48,9 +48,9 @@ void LT89XX_SetDataRate(LT89XX_Datarate datarate);
 void LT89XX_SetSyncWord(uint64_t syncword);
 void LT89XX_StartListening(void);
 
+void LT89XX_StopListening(void);
 void LT89XX_SetPowerAndGain(uint8_t txPower, uint8_t rxGain); // TBD
-void LT89XX_StopListening(void); // TBD
-void LT89XX_Read(void); // TBD
+void LT89XX_Read(uint8_t* buffer, const uint8_t bufferSize, uint8_t* messageLength); 
 void LT89XX_Write(void); // TBD
 
 

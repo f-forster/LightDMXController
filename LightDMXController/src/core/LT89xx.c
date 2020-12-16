@@ -21,10 +21,14 @@
 #define REG_SYNCWORD2			38
 #define REG_SYNCWORD3			39
 #define REG_DATARATE			44
+#define	REG_STATUS				48
+#define REG_FIFO				50
 #define REG_FIFO_CTRL			52
 
 #define RX_EN_BIT				7
 #define TX_EN_BIT				8
+
+#define REG_STATUS_CRC_BIT		15
 
 
 struct spi_module		spiMasterInstance;
@@ -33,10 +37,11 @@ struct spi_slave_inst	spiSlaveRef;
 uint8_t channelNr = 76;
 
 
-void _Setup_Pins(void);
-void _Configure_SPI(void);
-void _Setup_PKT_IRQ(void);
-void _Write_Register(uint8_t reg, uint16_t data);
+void		_Setup_Pins(void);
+void		_Configure_SPI(void);
+void		_Setup_PKT_IRQ(void);
+void		_Write_Register(uint8_t reg, uint16_t data);
+uint16_t	_Read_Register(uint8_t reg);
 
 
 void LT89XX_Init(void)
@@ -77,7 +82,7 @@ void LT89XX_Init(void)
 	
 	LT89XX_SetSyncWord(0x03805a5aa5a50380);
 	
-	_Write_Register(40, 0x4404);	// max. 5 error bits in syncword
+	_Write_Register(40, 0x4401);	// max. 3 error bits in syncword
 	_Write_Register(41, 0xb400);	
 	_Write_Register(42, 0xfdb0);
 	_Write_Register(43, 0x000f);
@@ -146,14 +151,26 @@ void _Configure_SPI(void)
 
 void _Write_Register(uint8_t reg, uint16_t data)
 {
-	static uint16_t txData;
-	txData = ((data >> 8) & 0xff) | ((data & 0xff) << 8);
+	static uint8_t txData[3];
+	txData[0] = MASK_WRITE_REGISTER | (MASK_REGISTER & reg);
+	txData[1] = ((data >> 8) & 0xff);
+	txData[2] = (data & 0xff);
 	spi_select_slave(&spiMasterInstance, &spiSlaveRef, true);
-	spi_write(&spiMasterInstance, MASK_WRITE_REGISTER | (MASK_REGISTER & reg));
-	spi_write_buffer_wait(&spiMasterInstance, (const uint8_t*)&txData, sizeof(data));
+	spi_write_buffer_wait(&spiMasterInstance, (const uint8_t*)&txData, sizeof(txData));
 	spi_select_slave(&spiMasterInstance, &spiSlaveRef, false);
 }
 
+
+uint16_t _Read_Register(uint8_t reg)
+{
+	uint8_t rxBuffer[3], txBuffer[3];
+	txBuffer[0] = MASK_READ_REGISTER | (MASK_REGISTER & reg);
+	txBuffer[1] = txBuffer[2] = 0;
+	spi_select_slave(&spiMasterInstance, &spiSlaveRef, true);
+	spi_transceive_buffer_wait(&spiMasterInstance, txBuffer, rxBuffer, 3);
+	spi_select_slave(&spiMasterInstance, &spiSlaveRef, false);
+	return (rxBuffer[1] << 8 | rxBuffer[2]);
+}
 
 
 void LT89XX_SetDataRate(LT89XX_Datarate datarate)
@@ -195,12 +212,47 @@ void LT89XX_SetSyncWord(uint64_t syncword)
 
 void LT89XX_StartListening(void)
 {
-	delay_ms(1); // WTF
+	delay_us(10); // WTF
 	_Write_Register(REG_TX_RX_EN_CHANNEL, channelNr & 0x7f);
-	delay_ms(1); // WTF
+	delay_us(10); // WTF
 	_Write_Register(REG_FIFO_CTRL, 0x0080); // clear FIFO read pointer
 	_Write_Register(REG_TX_RX_EN_CHANNEL, (channelNr & 0x7f) | (1<<RX_EN_BIT));
 }
 
+
+
+void LT89XX_StopListening(void)
+{
+	_Write_Register(REG_TX_RX_EN_CHANNEL, channelNr & 0x7f);
+}
+
+
+void LT89XX_Read(uint8_t* buffer, const uint8_t bufferSize, uint8_t* messageLength)
+{
+	uint16_t statusReg, packetSize, data;
+	uint8_t position = 0;
+	
+	statusReg = _Read_Register(REG_STATUS);
+	if (! (statusReg & REG_STATUS_CRC_BIT)) {
+		// CRC ok
+		
+		data = _Read_Register(REG_FIFO);
+		packetSize = data >> 8;
+		if (packetSize > bufferSize + 1) {
+			// rxBuffer to small
+			return;
+		} else {
+			*messageLength = packetSize;
+		}
+		position = 0;
+		buffer[position++] = (data & 0xff);
+		while (position < packetSize) {
+			data = _Read_Register(REG_FIFO);
+			buffer[position++] = (data >> 8);
+			buffer[position++] = (data & 0xff);
+		}
+		
+	}
+}
 
 

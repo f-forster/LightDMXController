@@ -6,6 +6,7 @@
  */ 
 #include <asf.h>
 #include "core/recv_remote_task.h"
+#include "core/taskhost.h"
 #include "core/LT89xx.h"
 #include "dmx/dmx_output_task.h"
 #include "common/dbg_tools.h"
@@ -14,18 +15,45 @@
 // Constants (local for access control)
 // -------------------------------------------------------------------------------------------------
 
+#define REMOTE_CMD_BUFFER_SIZE		32
+
+typedef enum {
+	MESSAGE_OK,
+	MESSAGE_INVALID
+} eMessageValid;
+
+
+typedef union {
+	struct {
+		uint8_t		_leader;
+		uint8_t		_counter;
+		uint8_t		protocolType;	// is always 0x80
+		uint8_t		remoteType;		// 0x31 = 1Ch remote, 0x34 = 4Ch remote
+		uint8_t		_dummy1;
+		uint16_t	remoteAddress;
+		uint16_t	_dummy2;
+		uint8_t		zoneCode;		// bitfield 
+		uint8_t		_dummy3;
+		uint16_t	cmdCode;
+		uint8_t		cmdData[];
+	} __attribute__ ((packed));
+	uint8_t bytes[REMOTE_CMD_BUFFER_SIZE];
+} tuRemoteCmdPacket;
 
 // -------------------------------------------------------------------------------------------------
 // Variables (local for access control)
 // -------------------------------------------------------------------------------------------------
 
+volatile uint8_t remoteDataAvailable = 0;
 
 // -------------------------------------------------------------------------------------------------
 // Prototypes (local for access control)
 // -------------------------------------------------------------------------------------------------
 
-void _RemoteSetup(void);
-void _FetchDataCallback(void);
+void	_RemoteSetup(void);
+void	_RemoteDataAvailableCallback(void);
+void _PrintReceivedCmd(const uint8_t* buffer, const uint8_t len);
+eMessageValid _IsMessageValid(uint8_t* message, uint8_t length);
 
 // -------------------------------------------------------------------------------------------------
 /*
@@ -35,13 +63,35 @@ void _FetchDataCallback(void);
 void Recv_Remote_Task(void* param)
 {
 	QueueHandle_t* pRemoteCommandQueue = (QueueHandle_t*)param;
+	tuRemoteCmdPacket remoteCmdBuffer;
+	uint8_t remoteCmdLength;
+
 	
 	_RemoteSetup();
 	
 	while (1)
 	{
-		// Wait for Eventgroup bit and process data
-		
+		// Suspend on entry
+		vTaskSuspend(NULL);
+		// -> Task resumed from _RemoteDataAvailableCallback ISR
+		if (remoteDataAvailable) {
+			vTaskSuspendAll();
+			remoteDataAvailable = 0;
+			LT89XX_Read(remoteCmdBuffer.bytes, REMOTE_CMD_BUFFER_SIZE, &remoteCmdLength);
+			LT89XX_StartListening();
+			xTaskResumeAll();
+			if (_IsMessageValid(remoteCmdBuffer.bytes, remoteCmdLength) == MESSAGE_OK) {
+				_PrintReceivedCmd(remoteCmdBuffer.bytes, remoteCmdLength);
+				
+				if (remoteCmdBuffer.cmdCode == 0x0107) {
+					// Color Packet
+						
+				}
+			} else {
+				DBG_OUT_PRINTF("Received invalid CMD\r");
+			}
+			
+		}
 	}
 }
 
@@ -49,16 +99,47 @@ void Recv_Remote_Task(void* param)
 void _RemoteSetup(void)
 {
 	LT89XX_Init();
+	LT89XX_Register_PKT_Callback(_RemoteDataAvailableCallback);
 	LT89XX_StartListening();
-	LT89XX_Register_PKT_Callback(_FetchDataCallback);
-	
 	
 }
 
 
 
-void _FetchDataCallback(void)
+void _RemoteDataAvailableCallback(void)
 {
-	// Set Eventgroup bit
+	remoteDataAvailable = 1;
+	portYIELD_FROM_ISR(xTaskResumeFromISR(RecvRemoteTaskHandle));
+}
+
+
+
+eMessageValid _IsMessageValid(uint8_t* message, uint8_t length)
+{
+	uint8_t checksumValue, i;
+
+	if (message[0] != 0x7e || message[length-1] != 0x7e) { // leader and trailer
+		return MESSAGE_INVALID;
+	}
 	
+	checksumValue = message[1]; 
+	for (i = 2; i < (length-2); i++) {
+		checksumValue ^= message[i];
+	}
+	
+	if (checksumValue != message[length-2]) { // checksum error
+		return MESSAGE_INVALID;
+	}
+	
+	return MESSAGE_OK;
+}
+
+void _PrintReceivedCmd(const uint8_t* buffer, const uint8_t len)
+{
+	uint8_t i;
+	DBG_OUT_PRINTF("Received CMD: ");
+	for (i = 0; i < len; ++i) {
+		DBG_OUT_PRINTF("%02x ", buffer[i]);
+	}
+	DBG_OUT_PRINTF(" | Length: %u \r", len);
 }
