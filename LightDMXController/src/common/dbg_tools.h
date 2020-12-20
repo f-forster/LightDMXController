@@ -59,21 +59,7 @@
 
 
 
-
 extern void DBG_Init(void);
-
-
-/*
-// outdated. The macros above are way better... 
-extern void			DBG_Msg	(uint8_t dbgClass, const char* str);
-extern void			DBG_ValD	(uint8_t dbgClass, const char* str, uint32_t val);
-extern void			DBG_ValSD	(uint8_t dbgClass, const char* str, int32_t val);
-extern void			DBG_ValH	(uint8_t dbgClass, const char* str, uint32_t val);
-extern status_code_genare_t DBG_Report	(uint8_t dbgClas, status_code_genare_t status);
-*/
-
-
-
 
 
 
