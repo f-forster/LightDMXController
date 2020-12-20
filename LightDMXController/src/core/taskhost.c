@@ -25,7 +25,7 @@
 
 TaskHandle_t StatusLedTaskHandle;
 TaskHandle_t ProgramsTaskHandle;
-TaskHandle_t RecvRemoteTaskHandle;
+
 
 // -------------------------------------------------------------------------------------------------
 // Eventgroups, Queues
@@ -50,7 +50,7 @@ void	Taskhost_Start(void)
 	*pROCEventGrp = xEventGroupCreate();
 	
 	QueueHandle_t* pRemoteCmdQ = pvPortMalloc(sizeof(QueueHandle_t));
-	*pRemoteCmdQ = xQueueCreate(5, sizeof(uint8_t));
+	*pRemoteCmdQ = xQueueCreate(8, sizeof(tRemoteCmd*));
 	
 	tProgramsTaskParams* programsTaskParams = pvPortMalloc(sizeof(tProgramsTaskParams));
 	programsTaskParams->pRemoteCommandQueue =  pRemoteCmdQ;

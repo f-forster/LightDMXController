@@ -22,8 +22,11 @@
 // Task Handles
 // -------------------------------------------------------------------------------------------------
 
-TaskHandle_t DMXOutputTaskHandle;	// verwendet in time_controller (wake from isr)
-TaskHandle_t RecvRemoteTaskHandle;
+TaskHandle_t DMXOutputTaskHandle;	// used in time_controller (wake from isr)
+TaskHandle_t RecvRemoteTaskHandle;	// used in recv_remote_task (wake from remote ISR)
+
+
+
 
 
 
