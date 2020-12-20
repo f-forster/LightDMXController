@@ -19,6 +19,7 @@
 
 typedef enum {
 	MESSAGE_OK,
+	MESSAGE_REPEAT,
 	MESSAGE_INVALID
 } eMessageValid;
 
@@ -65,6 +66,11 @@ void Recv_Remote_Task(void* param)
 	QueueHandle_t* pRemoteCommandQueue = (QueueHandle_t*)param;
 	tuRemoteCmdPacket remoteCmdBuffer;
 	uint8_t remoteCmdLength;
+	
+	uint8_t result = 0;
+	
+	// ptr for queue
+	tRemoteCmd* newRemoteCmd;
 
 	
 	_RemoteSetup();
@@ -80,17 +86,46 @@ void Recv_Remote_Task(void* param)
 			LT89XX_Read(remoteCmdBuffer.bytes, REMOTE_CMD_BUFFER_SIZE, &remoteCmdLength);
 			LT89XX_StartListening();
 			xTaskResumeAll();
-			if (_IsMessageValid(remoteCmdBuffer.bytes, remoteCmdLength) == MESSAGE_OK) {
+			result = _IsMessageValid(remoteCmdBuffer.bytes, remoteCmdLength);
+			if (result == MESSAGE_OK) {
 				_PrintReceivedCmd(remoteCmdBuffer.bytes, remoteCmdLength);
 				
-				if (remoteCmdBuffer.cmdCode == 0x0107) {
-					// Color Packet
+				if (uxQueueSpacesAvailable(*pRemoteCommandQueue) > 0) {
+					if (remoteCmdBuffer.cmdCode == 0x0701) {
+						// Color Packet
+						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
+						newRemoteCmd->cmdCode = CMD_STATIC_COLOR;
+						newRemoteCmd->color.r = remoteCmdBuffer.cmdData[1];
+						newRemoteCmd->color.g = remoteCmdBuffer.cmdData[2];
+						newRemoteCmd->color.b = remoteCmdBuffer.cmdData[3];
+						newRemoteCmd->color.w = 0;
 						
+						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
+					}
+					else if (remoteCmdBuffer.cmdCode == 0x0303) {
+						// Change Color Mode
+						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
+						newRemoteCmd->cmdCode = CMD_DYNAMIC_PROG;
+						newRemoteCmd->dynamicProgNr = remoteCmdBuffer.cmdData[1];
+						if (newRemoteCmd->dynamicProgNr > 0x0a) newRemoteCmd->dynamicProgNr = 0x0a; // Limit
+
+						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
+					}
+					else if (remoteCmdBuffer.cmdCode == 0x010a) {
+						// Turn off/on
+						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
+						if (remoteCmdBuffer.cmdData[1] == 0x00) {
+							newRemoteCmd->cmdCode = CMD_OFF;
+						} else {
+							newRemoteCmd->cmdCode = CMD_ON;
+						}
+						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
+						DBG_INFO("Free Heap: %u", xPortGetFreeHeapSize());
+					}
 				}
 			} else {
-				DBG_OUT_PRINTF("Received invalid CMD\r");
+				DBG_TRACE("Remote Message discarded, code: %u", result);
 			}
-			
 		}
 	}
 }
@@ -116,6 +151,7 @@ void _RemoteDataAvailableCallback(void)
 
 eMessageValid _IsMessageValid(uint8_t* message, uint8_t length)
 {
+	static uint8_t lastCount = 0;
 	uint8_t checksumValue, i;
 
 	if (message[0] != 0x7e || message[length-1] != 0x7e) { // leader and trailer
@@ -129,6 +165,12 @@ eMessageValid _IsMessageValid(uint8_t* message, uint8_t length)
 	
 	if (checksumValue != message[length-2]) { // checksum error
 		return MESSAGE_INVALID;
+	}
+	
+	if (message[1] <= lastCount) {
+		return MESSAGE_REPEAT;
+	} else {
+		lastCount = message[1];
 	}
 	
 	return MESSAGE_OK;
