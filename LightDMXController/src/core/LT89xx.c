@@ -25,10 +25,10 @@
 #define REG_FIFO				50
 #define REG_FIFO_CTRL			52
 
-#define RX_EN_BIT				7
-#define TX_EN_BIT				8
+#define RX_EN_BIT				(1<<7)
+#define TX_EN_BIT				(1<<8)
 
-#define REG_STATUS_CRC_BIT		15
+#define REG_STATUS_CRC_BIT		(1<<15)
 
 
 struct spi_module		spiMasterInstance;
@@ -51,44 +51,43 @@ void LT89XX_Init(void)
 	_Configure_SPI();
 	delay_ms(10);
 	
-	
 	// Register initialisation:
-	_Write_Register(0, 0x6fe0);
-	_Write_Register(1, 0x5681);
-	_Write_Register(2, 0x6617);
-	_Write_Register(4, 0x9cc9);
-	_Write_Register(5, 0x6637);
-	_Write_Register(7, 0x004c);		// channel 76
-	_Write_Register(8, 0x6c90);
-	_Write_Register(9, 0x0000);		// power and gain (4800 on original)
+	_Write_Register(0, 0x6fe0);		// fix
+	_Write_Register(1, 0x5681);		// fix
+	_Write_Register(2, 0x6617);		// fix
+	_Write_Register(4, 0x9cc9);		// fix
+	_Write_Register(5, 0x6637);		// fix
+	_Write_Register(7, 0x004c);		// channel 76 (fix)
+	_Write_Register(8, 0x6c90);		// fix
+	_Write_Register(9, 0x0000);		// power and gain (4800 on original) 
 	
-	_Write_Register(10, 0x7ffd);
-	_Write_Register(11, 0x0000);	// RSSI operates normaly
-	_Write_Register(12, 0x0000);
-	_Write_Register(13, 0x48bd);
+	_Write_Register(10, 0x7ffd);	// fix
+	_Write_Register(11, 0x0008);	// RSSI operates normaly (0008 on original)
+	_Write_Register(12, 0x0000);	// fix
+	_Write_Register(13, 0x48bd);	// fix
 	
-	_Write_Register(22, 0x00ff);
-	_Write_Register(23, 0x8005);
-	_Write_Register(24, 0x0067);
-	_Write_Register(25, 0x1659);
-	_Write_Register(26, 0x19e0);
-	_Write_Register(27, 0x1300);
-	_Write_Register(28, 0x1800);
+	_Write_Register(22, 0x00ff);	// fix
+	_Write_Register(23, 0x8005);	// fix
+	_Write_Register(24, 0x0067);	// fix
+	_Write_Register(25, 0x1659);	// fix
+	_Write_Register(26, 0x19e0);	// fix
+	_Write_Register(27, 0x1300);	// cystal trim [0:5] (fix)
+	_Write_Register(28, 0x1800);	// fix
 	
-	_Write_Register(32, 0x5800); 
-	_Write_Register(33, 0x3fc7);
-	_Write_Register(34, 0x2000);
-	_Write_Register(35, 0x0000);
+	_Write_Register(32, 0x5800); 	// fix
+	_Write_Register(33, 0x3fc7);	// fix
+	_Write_Register(34, 0x2000);	// fix
+	_Write_Register(35, 0x0000);	// fix
 	
 	LT89XX_SetSyncWord(0x03805a5aa5a50380);
 	
-	_Write_Register(40, 0x4401);	// max. 3 error bits in syncword
-	_Write_Register(41, 0xb400);	
-	_Write_Register(42, 0xfdb0);
-	_Write_Register(43, 0x000f);
+	_Write_Register(40, 0x4404);	// max. 3 error bits in syncword (4404 on original)
+	_Write_Register(41, 0xb400);	// fix
+	_Write_Register(42, 0x0db0);	// 0db0 on original
+	_Write_Register(43, 0x4b0f);	// 4b0f on original
 	LT89XX_SetDataRate(LT89XX_250KBPS);
-	_Write_Register(45, 0x0552);
-	
+	_Write_Register(45, 0x0552);	// fix
+	_Write_Register(REG_FIFO, 0x0000);
 }
 
 
@@ -212,11 +211,9 @@ void LT89XX_SetSyncWord(uint64_t syncword)
 
 void LT89XX_StartListening(void)
 {
-	delay_us(10); // WTF
-	_Write_Register(REG_TX_RX_EN_CHANNEL, channelNr & 0x7f);
-	delay_us(10); // WTF
-	_Write_Register(REG_FIFO_CTRL, 0x0080); // clear FIFO read pointer
-	_Write_Register(REG_TX_RX_EN_CHANNEL, (channelNr & 0x7f) | (1<<RX_EN_BIT));
+	delay_us(100);
+	_Write_Register(REG_FIFO_CTRL, 0x8080); // clear FIFO read pointer
+	_Write_Register(REG_TX_RX_EN_CHANNEL, (channelNr & 0x7f) | RX_EN_BIT);
 }
 
 
@@ -226,17 +223,29 @@ void LT89XX_StopListening(void)
 	_Write_Register(REG_TX_RX_EN_CHANNEL, channelNr & 0x7f);
 }
 
-
+/*
+I have observed weird behavior when reading from an LT8920.
+PKT flag is throw as usual but on a data read the CRC flag
+always indicates an error. Despite that, if i read the FIFO
+the first 2 words contain something (?) and the rest is the 
+actual data packet. I will have to do more research. */
 void LT89XX_Read(uint8_t* buffer, const uint8_t bufferSize, uint8_t* messageLength)
 {
 	uint16_t statusReg, packetSize, data;
 	uint8_t position = 0;
 	
 	statusReg = _Read_Register(REG_STATUS);
-	if (! (statusReg & REG_STATUS_CRC_BIT)) {
-		// CRC ok
-		
+	
+#ifndef VERSION_LT8920
+	// CRC check only on LT8910 or LT8900
+	if ((statusReg & REG_STATUS_CRC_BIT)) {
+#else
+		// fetch and discard first 2 FIFO pakets
 		data = _Read_Register(REG_FIFO);
+		data = _Read_Register(REG_FIFO);
+#endif
+
+		data = _Read_Register(REG_FIFO);	// get length from first byte in FIFO
 		packetSize = data >> 8;
 		if (packetSize > bufferSize + 1) {
 			// rxBuffer to small
@@ -251,8 +260,9 @@ void LT89XX_Read(uint8_t* buffer, const uint8_t bufferSize, uint8_t* messageLeng
 			buffer[position++] = (data >> 8);
 			buffer[position++] = (data & 0xff);
 		}
-		
+#ifndef VERSION_LT8920
 	}
+#endif
 }
 
 

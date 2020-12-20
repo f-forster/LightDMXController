@@ -10,6 +10,8 @@
 #ifndef LT89XX_H_
 #define LT89XX_H_
 
+#define VERSION_LT8920				// read bug
+
 #define LT89XX_PIN_CS				PIN_PA10
 
 #define LT89XX_PIN_RESET			PIN_PA19
