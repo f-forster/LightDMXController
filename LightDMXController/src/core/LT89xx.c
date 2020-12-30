@@ -81,7 +81,7 @@ void LT89XX_Init(void)
 	
 	LT89XX_SetSyncWord(0x03805a5aa5a50380);
 	
-	_Write_Register(40, 0x4404);	// max. 3 error bits in syncword (4404 on original)
+	_Write_Register(40, 0x4401);	// max. 3 error bits in syncword (4404 on original)
 	_Write_Register(41, 0xb400);	// fix
 	_Write_Register(42, 0x0db0);	// 0db0 on original
 	_Write_Register(43, 0x4b0f);	// 4b0f on original
@@ -212,8 +212,11 @@ void LT89XX_SetSyncWord(uint64_t syncword)
 void LT89XX_StartListening(void)
 {
 	delay_us(100);
+	_Write_Register(REG_TX_RX_EN_CHANNEL, channelNr & 0x7f);
+	delay_us(100);
 	_Write_Register(REG_FIFO_CTRL, 0x8080); // clear FIFO read pointer
 	_Write_Register(REG_TX_RX_EN_CHANNEL, (channelNr & 0x7f) | RX_EN_BIT);
+	delay_us(100);
 }
 
 
@@ -238,7 +241,7 @@ void LT89XX_Read(uint8_t* buffer, const uint8_t bufferSize, uint8_t* messageLeng
 	
 #ifndef VERSION_LT8920
 	// CRC check only on LT8910 or LT8900
-	if ((statusReg & REG_STATUS_CRC_BIT)) {
+	if (!(statusReg & REG_STATUS_CRC_BIT)) {
 #else
 		// fetch and discard first 2 FIFO pakets
 		data = _Read_Register(REG_FIFO);

@@ -53,8 +53,9 @@ volatile uint8_t remoteDataAvailable = 0;
 
 void	_RemoteSetup(void);
 void	_RemoteDataAvailableCallback(void);
-void _PrintReceivedCmd(const uint8_t* buffer, const uint8_t len);
+void	_PrintReceivedCmd(const uint8_t* buffer, const uint8_t len);
 eMessageValid _IsMessageValid(uint8_t* message, uint8_t length);
+eMessageValid _MatchAddress(tuRemoteCmdPacket* msgPacket);
 
 // -------------------------------------------------------------------------------------------------
 /*
@@ -78,7 +79,8 @@ void Recv_Remote_Task(void* param)
 	while (1)
 	{
 		// Suspend on entry
-		vTaskSuspend(NULL);
+		// vTaskSuspend(NULL);
+		vTaskDelay(pdMS_TO_TICKS(5000));
 		// -> Task resumed from _RemoteDataAvailableCallback ISR
 		if (remoteDataAvailable) {
 			vTaskSuspendAll();
@@ -89,8 +91,8 @@ void Recv_Remote_Task(void* param)
 			result = _IsMessageValid(remoteCmdBuffer.bytes, remoteCmdLength);
 			if (result == MESSAGE_OK) {
 				_PrintReceivedCmd(remoteCmdBuffer.bytes, remoteCmdLength);
-				
-				if (uxQueueSpacesAvailable(*pRemoteCommandQueue) > 0) {
+				_MatchAddress(&remoteCmdBuffer);
+				if (_MatchAddress(&remoteCmdBuffer) == MESSAGE_OK && uxQueueSpacesAvailable(*pRemoteCommandQueue) > 0) {
 					if (remoteCmdBuffer.cmdCode == 0x0701) {
 						// Color Packet
 						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
@@ -102,6 +104,10 @@ void Recv_Remote_Task(void* param)
 						
 						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
 					}
+					else if (remoteCmdBuffer.cmdCode == 0x0308) {
+						// White Key
+						
+					}
 					else if (remoteCmdBuffer.cmdCode == 0x0303) {
 						// Change Color Mode
 						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
@@ -110,6 +116,15 @@ void Recv_Remote_Task(void* param)
 						if (newRemoteCmd->dynamicProgNr > 0x0a) newRemoteCmd->dynamicProgNr = 0x0a; // Limit
 
 						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
+					}
+					else if (remoteCmdBuffer.cmdCode == 0x0206) {
+						// Change speed
+						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
+						newRemoteCmd->cmdCode = CMD_SPEED;
+						newRemoteCmd->speed = (remoteCmdBuffer.cmdData[2]) * 6;
+						
+						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
+						DBG_INFO("Speed change: %u", newRemoteCmd->speed);
 					}
 					else if (remoteCmdBuffer.cmdCode == 0x010a) {
 						// Turn off/on
@@ -126,6 +141,12 @@ void Recv_Remote_Task(void* param)
 			} else {
 				DBG_TRACE("Remote Message discarded, code: %u", result);
 			}
+		}
+		else {
+			// restart listener
+			vTaskSuspendAll();
+			LT89XX_StartListening();
+			xTaskResumeAll();
 		}
 	}
 }
@@ -144,7 +165,7 @@ void _RemoteSetup(void)
 void _RemoteDataAvailableCallback(void)
 {
 	remoteDataAvailable = 1;
-	portYIELD_FROM_ISR(xTaskResumeFromISR(RecvRemoteTaskHandle));
+	xTaskAbortDelay(RecvRemoteTaskHandle);
 }
 
 
@@ -167,7 +188,7 @@ eMessageValid _IsMessageValid(uint8_t* message, uint8_t length)
 		return MESSAGE_INVALID;
 	}
 	
-	if (message[1] <= lastCount) {
+	if (message[1] == lastCount) {
 		return MESSAGE_REPEAT;
 	} else {
 		lastCount = message[1];
@@ -184,4 +205,15 @@ void _PrintReceivedCmd(const uint8_t* buffer, const uint8_t len)
 		DBG_OUT_PRINTF("%02x ", buffer[i]);
 	}
 	DBG_OUT_PRINTF(" | Length: %u \r", len);
+}
+
+eMessageValid _MatchAddress(tuRemoteCmdPacket* msgPacket)
+{
+	if (msgPacket->protocolType != 0x80) {
+		return MESSAGE_INVALID;
+	}
+	if (msgPacket->remoteType != 0x31 && msgPacket->remoteType != 0x34) {
+		return MESSAGE_INVALID;
+	}
+	return MESSAGE_OK;
 }

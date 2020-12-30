@@ -16,8 +16,8 @@ typedef enum
 	CMD_OFF,
 	CMD_ON,
 	CMD_STATIC_COLOR,
-	CMD_DYNAMIC_PROG
-	
+	CMD_DYNAMIC_PROG,
+	CMD_SPEED
 } eRemoteCmdCode;
 
 typedef struct  
@@ -26,6 +26,7 @@ typedef struct
 	union {
 		tRgbwColor		color;
 		uint8_t			dynamicProgNr;
+		uint8_t			speed;
 	};
 } tRemoteCmd;
 

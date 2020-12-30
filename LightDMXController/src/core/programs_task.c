@@ -7,8 +7,10 @@
 #include <asf.h>
 #include "common/dbg_tools.h"
 #include "dmx/dmx_output_task.h"
+#include "core/recv_remote_task.h"
 #include "core/types.h"
 #include "core/programs_task.h"
+#include "core/programm_presets.h"
 #include "core/taskhost.h"
 
 // -------------------------------------------------------------------------------------------------
@@ -18,22 +20,8 @@
 
 #define NUM_LAMPS					2
 
-#define PRG_PROP_STATIC_COLOR		(1<<0)
-#define PRG_PROP_DYNAMIC			(1<<1)
-#define PRG_PROP_SIMULTAN			(1<<2)	
-
 
 #define PRG_MAX_TRANSITION_STEPS	4096UL
-
-
-typedef struct {
-	tRgbwColor*	colorList;
-	uint8_t	speed;
-	uint8_t		brightness;
-	uint8_t		numColors;
-	uint8_t		propertys;
-	uint8_t		offsets;
-} tProgram;
 
 
 typedef struct {
@@ -44,31 +32,24 @@ typedef struct {
 // -------------------------------------------------------------------------------------------------
 // Variables (local for access control)
 // -------------------------------------------------------------------------------------------------
-tRgbwColor prog1Colors[] = { {0xFF}, {0xFF00},  {0xFF0000}, {0xFF000000}};
-tProgram firstProgram =		{prog1Colors, 20, 255, 4, PRG_PROP_DYNAMIC | PRG_PROP_SIMULTAN, 0};
-tProgram secondProgram  =	{prog1Colors, 20, 255, 4, PRG_PROP_DYNAMIC , 2};
-
-
-tProgram *programList[] = {&firstProgram, &firstProgram};
-	
 tRgbwColor tmpFrame[MAXIMUM_NUM_LAMPS];
+
 
 // -------------------------------------------------------------------------------------------------
 // Prototypes (local for access control)
 // -------------------------------------------------------------------------------------------------
 
 
-
+ 
 
 // -------------------------------------------------------------------------------------------------
 void	Programs_Task (void* param) 
 {
 	tProgramsTaskParams* prgTaskParam = (tProgramsTaskParams*)param;
+	tRemoteCmd *newRemoteCmd;
 	EventBits_t rocBits = ROC_RUNNING;
 	
 	tProgram currentPrg;
-	
-	tRgbwColor	currentStaticColor;
 	tRgbwColor	_tmpColor;
 	
 	tTransitionVar renderTransition[NUM_LAMPS];
@@ -84,7 +65,7 @@ void	Programs_Task (void* param)
 
 	
 	// Init
-	currentPrg = secondProgram;
+	currentPrg = prg1;
 	for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
 		renderTransition[itLamp].nextColorIndex = 0;
 		renderTransition[itLamp].Pos = 0;
@@ -98,7 +79,27 @@ void	Programs_Task (void* param)
 	
 	while (1) {
 		// Evaluate Remote Control
-		// ...
+		if( xQueueReceive( *(prgTaskParam->pRemoteCommandQueue), &newRemoteCmd, (TickType_t) 10 ) == pdPASS )
+		{
+			if (newRemoteCmd->cmdCode == CMD_OFF) {
+				currentPrg.propertys |= PRG_PROP_OFF;
+			}
+			else if (newRemoteCmd->cmdCode == CMD_ON) {
+				currentPrg.propertys &= ~PRG_PROP_OFF;
+			}
+			else if (newRemoteCmd->cmdCode == CMD_SPEED) {
+				currentPrg.speed = newRemoteCmd->speed;
+			}
+			else if (newRemoteCmd->cmdCode == CMD_STATIC_COLOR) {
+				currentPrg = constColorProgram;
+				currentPrg.colorList[0]._dword = newRemoteCmd->color._dword;
+			} 
+			else if (newRemoteCmd->cmdCode == CMD_DYNAMIC_PROG) {
+				currentPrg = *(programList[newRemoteCmd->dynamicProgNr % PRESET_PROG_COUNT]); // Limit to count in programList
+			}
+			
+			vPortFree(newRemoteCmd);
+		}
 		
 		
 		
@@ -120,15 +121,20 @@ void	Programs_Task (void* param)
 			calculation of the individual colors
 			
 		*/
-		
-		// _ResetBackBuffer(); ????
-		if (currentPrg.propertys & PRG_PROP_STATIC_COLOR) {
+		if (currentPrg.propertys & PRG_PROP_OFF) {
+			// Every Lamp off
+			for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
+				GetBackBuffer()[itLamp]._dword = 0;
+			}
+		}
+		else if (currentPrg.propertys & PRG_PROP_STATIC_COLOR) {
 			// Every Lamp the same static color, no dimming
 			for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
 				GetBackBuffer()[itLamp]._dword = currentPrg.colorList[0]._dword;
 			}
 			
-		} else if (currentPrg.propertys & PRG_PROP_DYNAMIC) {
+		} 
+		else if (currentPrg.propertys & PRG_PROP_DYNAMIC) {
 			
 			if (currentPrg.propertys & PRG_PROP_SIMULTAN) {
 				// Every Lamp the same color
