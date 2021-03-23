@@ -26,12 +26,17 @@ void system_board_init(void)
 	 * specific board configuration, found in conf_board.h.
 	 */
 	
-	// for LEDs
+	// LEDs
 	ioport_set_pin_dir(LED_RED_PIN, IOPORT_DIR_OUTPUT);
 	ioport_set_pin_dir(LED_GREEN_PIN, IOPORT_DIR_OUTPUT);
+	ioport_set_pin_dir(LED_YELLOW_PIN, IOPORT_DIR_OUTPUT);
 	// LED Test
 	ioport_set_pin_level(LED_RED_PIN, LED_ACTIVE);
 	ioport_set_pin_level(LED_GREEN_PIN, LED_ACTIVE);
+	ioport_set_pin_level(LED_YELLOW_PIN, LED_ACTIVE);
+	
+	// Button
+	ioport_set_pin_dir(BUTTON1_PIN, IOPORT_DIR_INPUT);
 	
 		
 }
