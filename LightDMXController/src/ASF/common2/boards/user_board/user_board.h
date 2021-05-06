@@ -44,6 +44,7 @@ void system_board_init(void);
 #define LED_INACTIVE            !LED_ACTIVE
 
 #define BUTTON1_PIN				PIN_PA15
+#define BUTTON1_PRESSED			false
 
 // unused pins
 #define UNUSED_PIN_0			PIN_PA08
