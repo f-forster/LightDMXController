@@ -37,6 +37,6 @@ void system_board_init(void)
 	
 	// Button
 	ioport_set_pin_dir(BUTTON1_PIN, IOPORT_DIR_INPUT);
-	
+	ioport_set_pin_mode(BUTTON1_PIN, IOPORT_MODE_PULLUP);
 		
 }
