@@ -23,6 +23,8 @@
 
 #define PRG_MAX_TRANSITION_STEPS	4096UL
 
+#define EE_CURRENT_PRG_OFFSET		0x10
+
 
 typedef struct {
 	uint16_t	Pos;
@@ -39,7 +41,7 @@ tRgbwColor tmpFrame[MAXIMUM_NUM_LAMPS];
 // Prototypes (local for access control)
 // -------------------------------------------------------------------------------------------------
 
-
+static enum status_code VerifyProgram(tProgram *prg);
  
 
 // -------------------------------------------------------------------------------------------------
@@ -47,6 +49,7 @@ void	Programs_Task (void* param)
 {
 	tProgramsTaskParams* prgTaskParam = (tProgramsTaskParams*)param;
 	tRemoteCmd *newRemoteCmd;
+	enum status_code result; 
 	EventBits_t rocBits = ROC_RUNNING;
 	
 	tProgram currentPrg;
@@ -60,12 +63,36 @@ void	Programs_Task (void* param)
 	uint8_t itColor = 0;
 	uint8_t itOffset = 0;
 	
+	// EEPROM emluator initialisation
+	taskENTER_CRITICAL();
+	result = eeprom_emulator_init();
+	taskEXIT_CRITICAL();
+	// NVM-Module is initialized as part of EEPROM
+	
+	if (result == STATUS_ERR_NO_MEMORY) {
+		DBG_ERR("EEPROM Fuses not set up!\nEmergency HALT!");
+		while (1) {}
+	} else if (result == STATUS_ERR_BAD_FORMAT) {
+		// EEPROM not initialized yet (first startup)
+		taskENTER_CRITICAL();
+		eeprom_emulator_erase_memory();
+		result = eeprom_emulator_init();
+		taskEXIT_CRITICAL();
+		DBG_WARN("EEPROM new initialized!");
+	}
 	
 	
-
+	// Load prg from EEMEM
+	taskENTER_CRITICAL();
+	eeprom_emulator_read_buffer(EE_CURRENT_PRG_OFFSET, (uint8_t*) &currentPrg, sizeof(tProgram));
+	taskEXIT_CRITICAL();
+	if (VerifyProgram(&currentPrg) != STATUS_OK) {
+		currentPrg = prg1;
+		DBG_INFO("No program in EEMEM, loaded default.");
+	} else {
+		DBG_INFO("Loaded currentPrg from EEMEM (%u colors)", currentPrg.numColors);
+	}
 	
-	// Init
-	currentPrg = prg1;
 	for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
 		renderTransition[itLamp].nextColorIndex = 0;
 		renderTransition[itLamp].Pos = 0;
@@ -97,6 +124,11 @@ void	Programs_Task (void* param)
 			else if (newRemoteCmd->cmdCode == CMD_DYNAMIC_PROG) {
 				currentPrg = *(programList[newRemoteCmd->dynamicProgNr % PRESET_PROG_COUNT]); // Limit to count in programList
 			}
+			
+			taskENTER_CRITICAL();
+			eeprom_emulator_write_buffer(EE_CURRENT_PRG_OFFSET, (const uint8_t*) &currentPrg, sizeof(tProgram));
+			eeprom_emulator_commit_page_buffer();
+			taskEXIT_CRITICAL();
 			
 			vPortFree(newRemoteCmd);
 		}
@@ -206,3 +238,27 @@ void	Programs_Task (void* param)
 }
 
 // -------------------------------------------------------------------------------------------------
+
+static enum status_code VerifyProgram(tProgram *prg)
+{
+	if (prg->offsets > NUM_LAMPS) {
+		return STATUS_ERR_BAD_DATA;
+	}
+	
+	if (prg->numColors > 5) {
+		return STATUS_ERR_BAD_DATA;
+	}
+	
+	if (prg->colorList != constColor && 
+			prg->colorList != rgbColors && 
+			prg->colorList != warmColors && 
+			prg->colorList != coldColors) {
+		return STATUS_ERR_BAD_DATA;
+	}
+	if (prg->propertys > (PRG_PROP_STATIC_COLOR | PRG_PROP_DYNAMIC |
+						 PRG_PROP_SIMULTAN | PRG_PROP_OFF)) {
+		return STATUS_ERR_BAD_DATA;
+	}
+	
+	return STATUS_OK;
+}
