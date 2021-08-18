@@ -4,13 +4,18 @@
  * Created: 11.12.2020 23:42:16
  * Author: Franz Forster
  * 
+ * A simple library for receiving and transmitting of 2.4G
+ * signals with the LT89XX transreceiver chips
+ * 
  */ 
 
 
 #ifndef LT89XX_H_
 #define LT89XX_H_
 
-#define VERSION_LT8910				// read bug
+// Specify which version of the LT89XX is used
+#define VERSION_LT8910				// works as described in datasheet
+// #define	VERSION_LT8920			// read bug
 
 
 typedef enum 
@@ -22,7 +27,7 @@ typedef enum
 	
 } LT89XX_Datarate;
 
-typedef void(* tRecvCallback)(void);
+typedef void(* tRecvCallback)(void);	// is called when data is received
 
 void LT89XX_Init(void);
 void LT89XX_Register_PKT_Callback(const tRecvCallback cb);
