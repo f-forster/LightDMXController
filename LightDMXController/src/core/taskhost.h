@@ -17,6 +17,7 @@
 #define ROC_RENDERING_FINISHED_READY_FOR_OUTPUT		(1<<1)
 #define ROC_BUFFER_SWAPED_READY_FOR_RENDERING		(1<<2)
 
+#define BUTTON1_TIME_TO_RESET						6000 // apprx. 6s to reset
 
 // -------------------------------------------------------------------------------------------------
 // Task Handles

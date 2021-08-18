@@ -36,13 +36,11 @@ uint32_t timebase = 0;
 void tc_callback_increment_timebase (struct tc_module *const module_inst);
 void tc_callback_dmx_output_cycle (struct tc_module *const module_inst);
 
+void CheckResetButton(void);
+
 // -------------------------------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------------------------------
-/*
-	Description: 
-
-*/
 status_code_genare_t TC_Init (void)
 {
 	struct tc_config config_tc;
@@ -83,11 +81,6 @@ status_code_genare_t TC_Init (void)
 }
 
 // -------------------------------------------------------------------------------------------------
-/*
-	Description: 
-
-
-*/
 void	TC_Start(eTimerModule tcModul)
 {
 	if (tcModul & TIMER_GENERAL) {
@@ -100,24 +93,14 @@ void	TC_Start(eTimerModule tcModul)
 
 
 // -------------------------------------------------------------------------------------------------
-/*
-	Description: 
-
-
-*/
 void tc_callback_increment_timebase (struct tc_module *const module_inst)
 {
 	timebase++;
-	// if (!(timebase%500)) ioport_toggle_pin_level(LED0_PIN);
+	CheckResetButton();
 }
 
 
 // -------------------------------------------------------------------------------------------------
-/*
-	Description: 
-
-
-*/
 void tc_callback_dmx_output_cycle (struct tc_module *const module_inst)
 {
 	// ISR feuert mit ca 33Hz und stößt den DMX-Output Task an
@@ -130,10 +113,27 @@ void tc_callback_dmx_output_cycle (struct tc_module *const module_inst)
 }
 
 // -------------------------------------------------------------------------------------------------
-
 uint32_t	TC_GetTb(void)
 {
 	return timebase;
 }
 
+// -------------------------------------------------------------------------------------------------
+void CheckResetButton(void)
+{
+	static uint32_t resetTimer = 0;
+	
+	if (ioport_get_pin_level(BUTTON1_PIN) == BUTTON1_PRESSED) {
+		++resetTimer;
+		if (resetTimer > BUTTON1_TIME_TO_RESET) {
+			NVIC_SystemReset();
+			while (1) {
+				asm volatile ("nop");
+			}
+		}
+	} else {
+		resetTimer = 0;
+	}
+	
+}
 
