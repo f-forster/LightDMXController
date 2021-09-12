@@ -520,7 +520,9 @@
   </armgcc.preprocessingassembler.general.IncludePaths>
 </ArmGcc>
     </ToolchainSettings>
-    <PostBuildEvent>srec_cat "$(OutputDirectory)\$(OutputFileName).bin" -binary -offset 0x10 -crc32-l-e 0x0 -e 0x04 0x10 -gen 0x04 0x10 -repeat-string 'LICTRLFWD21E' -o LienarControllerFirmware_v10.bin -binary</PostBuildEvent>
+    <PostBuildEvent>srec_cat "$(OutputDirectory)\$(OutputFileName).bin" -binary -offset 0x10 -crc32-l-e 0x0 -e 0x04 0x10 -gen 0x04 0x10 -repeat-string "LICTRLFWD21E" -o LienarControllerFirmware_v10.bin -binary</PostBuildEvent>
+    <PreBuildEvent>
+    </PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <ToolchainSettings>

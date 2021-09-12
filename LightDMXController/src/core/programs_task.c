@@ -119,8 +119,17 @@ void	Programs_Task (void* param)
 			}
 			else if (newRemoteCmd->cmdCode == CMD_STATIC_COLOR) {
 				currentPrg = constColorProgram;
-				currentPrg.colorList[0]._dword = newRemoteCmd->color._dword;
-			} 
+				currentPrg.constColor._dword = newRemoteCmd->color._dword;
+			}
+			else if (newRemoteCmd->cmdCode == CMD_TOGGLE_WHITE) {
+				if (currentPrg.constColor.w > 0) {
+					currentPrg.constColor.w = 0;
+					currentPrg.propertys &= ~PRG_PROP_WHITE_ON;
+				} else {
+					currentPrg.constColor.w = 0xFF;
+					currentPrg.propertys |= PRG_PROP_WHITE_ON;
+				}
+			}
 			else if (newRemoteCmd->cmdCode == CMD_DYNAMIC_PROG) {
 				currentPrg = *(programList[newRemoteCmd->dynamicProgNr % PRESET_PROG_COUNT]); // Limit to count in programList
 			}
@@ -162,7 +171,7 @@ void	Programs_Task (void* param)
 		else if (currentPrg.propertys & PRG_PROP_STATIC_COLOR) {
 			// Every Lamp the same static color, no dimming
 			for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
-				GetBackBuffer()[itLamp]._dword = currentPrg.colorList[0]._dword;
+				GetBackBuffer()[itLamp]._dword = currentPrg.constColor._dword;
 			}
 			
 		} 
@@ -190,6 +199,10 @@ void	Programs_Task (void* param)
 				
 				for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
 					GetBackBuffer()[itLamp]._dword = _tmpColor._dword;
+					// overwrite the white color if enabled
+					if (currentPrg.propertys & PRG_PROP_WHITE_ON) {
+						GetBackBuffer()[itLamp].w = currentPrg.constColor.w;
+					}
 				}
 				
 				renderTransition[0].Pos += currentPrg.speed;
@@ -249,7 +262,7 @@ static enum status_code VerifyProgram(tProgram *prg)
 		return STATUS_ERR_BAD_DATA;
 	}
 	
-	if (prg->colorList != constColor && 
+	if (prg->colorList != NULL &&
 			prg->colorList != rgbColors && 
 			prg->colorList != warmColors && 
 			prg->colorList != coldColors) {

@@ -106,7 +106,9 @@ void Recv_Remote_Task(void* param)
 					}
 					else if (remoteCmdBuffer.cmdCode == 0x0308) {
 						// White Key
-						
+						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
+						newRemoteCmd->cmdCode = CMD_TOGGLE_WHITE;
+						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
 					}
 					else if (remoteCmdBuffer.cmdCode == 0x0303) {
 						// Change Color Mode

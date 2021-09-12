@@ -17,10 +17,12 @@
 #define PRG_PROP_DYNAMIC			(1<<1)
 #define PRG_PROP_SIMULTAN			(1<<2)
 #define PRG_PROP_OFF				(1<<3)
+#define PRG_PROP_WHITE_ON			(1<<4)
 
 
 typedef struct {
 	tRgbwColor*	colorList;
+	tRgbwColor	constColor;
 	uint8_t		speed;				// from 5 to 
 	uint8_t		brightness;
 	uint8_t		numColors;

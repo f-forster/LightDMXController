@@ -17,7 +17,8 @@ typedef enum
 	CMD_ON,
 	CMD_STATIC_COLOR,
 	CMD_DYNAMIC_PROG,
-	CMD_SPEED
+	CMD_SPEED,
+	CMD_TOGGLE_WHITE
 } eRemoteCmdCode;
 
 typedef struct  
