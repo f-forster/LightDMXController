@@ -190,7 +190,6 @@ void	Programs_Task (void* param)
 				
 				for (itLamp = 0; itLamp < NUM_LAMPS; ++itLamp) {
 					GetBackBuffer()[itLamp]._dword = _tmpColor._dword;
-					}
 				}
 				
 				renderTransition[0].Pos += currentPrg.speed;
