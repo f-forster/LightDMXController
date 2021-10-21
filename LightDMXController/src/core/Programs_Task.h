@@ -21,6 +21,7 @@
 
 typedef struct {
 	tRgbwColor*	colorList;
+	tRgbwColor	constColor;
 	uint8_t		speed;				// from 5 to 
 	uint8_t		brightness;
 	uint8_t		numColors;
