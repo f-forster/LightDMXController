@@ -16,6 +16,8 @@
 // -------------------------------------------------------------------------------------------------
 
 #define REMOTE_CMD_BUFFER_SIZE		32
+// #define DISABLE_REMOTE_ADDR_MATCH	// for easier use with different remotes
+
 
 typedef enum {
 	MESSAGE_OK,
@@ -46,6 +48,7 @@ typedef union {
 // -------------------------------------------------------------------------------------------------
 
 volatile uint8_t remoteDataAvailable = 0;
+uint16_t remoteControlAddr = 0x732C;
 
 // -------------------------------------------------------------------------------------------------
 // Prototypes (local for access control)
@@ -54,6 +57,7 @@ volatile uint8_t remoteDataAvailable = 0;
 void	_RemoteSetup(void);
 void	_RemoteDataAvailableCallback(void);
 void	_PrintReceivedCmd(const uint8_t* buffer, const uint8_t len);
+void	_UpdateRemoteAddrRequired(void);
 eMessageValid _IsMessageValid(uint8_t* message, uint8_t length);
 eMessageValid _MatchAddress(tuRemoteCmdPacket* msgPacket);
 
@@ -90,9 +94,9 @@ void Recv_Remote_Task(void* param)
 			xTaskResumeAll();
 			result = _IsMessageValid(remoteCmdBuffer.bytes, remoteCmdLength);
 			if (result == MESSAGE_OK) {
-				_PrintReceivedCmd(remoteCmdBuffer.bytes, remoteCmdLength);
-				_MatchAddress(&remoteCmdBuffer);
+				_UpdateRemoteAddrRequired();
 				if (_MatchAddress(&remoteCmdBuffer) == MESSAGE_OK && uxQueueSpacesAvailable(*pRemoteCommandQueue) > 0) {
+					_PrintReceivedCmd(remoteCmdBuffer.bytes, remoteCmdLength);
 					if (remoteCmdBuffer.cmdCode == 0x0701) {
 						// Color Packet
 						newRemoteCmd = pvPortMalloc(sizeof (tRemoteCmd));
@@ -144,6 +148,7 @@ void Recv_Remote_Task(void* param)
 						xQueueSend(*pRemoteCommandQueue, &newRemoteCmd, 0);
 						DBG_INFO("Free Heap: %u", xPortGetFreeHeapSize());
 					}
+					ChangeLEDStatus(0, 0x3, 0x5555, 7);
 				}
 			} else {
 				DBG_TRACE("Remote Message discarded, code: %u", result);
@@ -222,5 +227,24 @@ eMessageValid _MatchAddress(tuRemoteCmdPacket* msgPacket)
 	if (msgPacket->remoteType != 0x31 && msgPacket->remoteType != 0x34) {
 		return MESSAGE_INVALID;
 	}
+	
+#ifndef DISABLE_REMOTE_ADDR_MATCH
+	if(msgPacket->remoteAddress != remoteControlAddr) {
+		return MESSAGE_INVALID;
+	}
+#endif
+
 	return MESSAGE_OK;
 }
+
+
+void	_UpdateRemoteAddrRequired(void)
+{
+	// hier Task notification abfragen und überprüfen ob gültig
+	wenn ja, Adresse erst in EEMEM schreiben, dann in Variable und dann 
+	LED blinken lassen.
+	
+	in ISR bei 3s Tastendruck xTaskNotifyFromISR( xHandlingTask,
+	RX_BIT,
+	eSetBits,
+	&xHigherPriorityTaskWoken ); ausloen
