@@ -33,6 +33,7 @@ TaskHandle_t RecvRemoteTaskHandle;	// used in recv_remote_task (wake from remote
 
 // -------------------------------------------------------------------------------------------------
 extern void	Taskhost_Start			(void);
+extern void ChangeLEDStatus			(uint16_t patternRed, uint16_t patternGreen, uint16_t patternYellow, uint8_t duration);
 
 
 

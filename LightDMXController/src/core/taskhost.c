@@ -18,6 +18,12 @@
 // Constants (local for access control)
 // -------------------------------------------------------------------------------------------------
 
+typedef struct {
+	uint16_t red;
+	uint16_t green;
+	uint16_t yellow;
+	uint8_t  duration;
+} tStatusLEDParam;
 
 // -------------------------------------------------------------------------------------------------
 // Variables (local for access control)
@@ -26,11 +32,8 @@
 TaskHandle_t StatusLedTaskHandle;
 TaskHandle_t ProgramsTaskHandle;
 
-
-// -------------------------------------------------------------------------------------------------
-// Eventgroups, Queues
-// -------------------------------------------------------------------------------------------------
-
+QueueHandle_t* pStatusLEDQ;
+const tStatusLEDParam IdleLEDPattern = {0, 0x3, 0, 0};
 
 
 // -------------------------------------------------------------------------------------------------
@@ -51,6 +54,9 @@ void	Taskhost_Start(void)
 	
 	QueueHandle_t* pRemoteCmdQ = pvPortMalloc(sizeof(QueueHandle_t));
 	*pRemoteCmdQ = xQueueCreate(8, sizeof(tRemoteCmd*));
+	
+	pStatusLEDQ = pvPortMalloc(sizeof(QueueHandle_t));
+	*pStatusLEDQ = xQueueCreate(2, sizeof(tStatusLEDParam));
 	
 	tProgramsTaskParams* programsTaskParams = pvPortMalloc(sizeof(tProgramsTaskParams));
 	programsTaskParams->pRemoteCommandQueue =  pRemoteCmdQ;
@@ -103,36 +109,59 @@ void	Taskhost_Start(void)
 
 void StatusLed_Task (void* param)
 {
-	static uint16_t redLedDutyCycle = 0xF0F0;
-	static uint16_t greenLedDutyCycle = 0;
+	static tStatusLEDParam ledPattern = {0, 0, 0, 0};
 	static uint8_t shifter = 0;
+	tStatusLEDParam* newLEDPattern;
 	TickType_t lastWake;
 	lastWake = xTaskGetTickCount();
 	
+	ledPattern = IdleLEDPattern;
+	
 	while (1) {
-		// every Second
-		if (1) {
-			greenLedDutyCycle = 0xFF00;
-		} else {
-				greenLedDutyCycle = (1<<1) | (1<<3);
-		}
-
-		
 		// LED Control
 		for (shifter = 0; shifter < 16; ++shifter) {
-			if (redLedDutyCycle & (1<<shifter)) {
+			if( xQueueReceive(*pStatusLEDQ, &newLEDPattern, (TickType_t) 10 ) == pdPASS )
+			{
+				ledPattern = *newLEDPattern;
+				shifter = 0;
+				vPortFree(newLEDPattern);
+			}
+			
+			if (ledPattern.red & (1<<shifter)) {
 				ioport_set_pin_level(LED_RED_PIN, LED_ACTIVE);
-				} else {
+			} else {
 				ioport_set_pin_level(LED_RED_PIN, LED_INACTIVE);
 			}
-			if (greenLedDutyCycle & (1<<shifter)) {
+			if (ledPattern.yellow & (1<<shifter)) {
+				ioport_set_pin_level(LED_YELLOW_PIN, LED_ACTIVE);
+			} else {
+				ioport_set_pin_level(LED_YELLOW_PIN, LED_INACTIVE);
+			}
+			if (ledPattern.green & (1<<shifter)) {
 				ioport_set_pin_level(LED_GREEN_PIN, LED_ACTIVE);
-				} else {
+			} else {
 				ioport_set_pin_level(LED_GREEN_PIN, LED_INACTIVE);
 			}
 			vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(150));
+			
+			if (ledPattern.duration > 0) {
+				--ledPattern.duration;
+			} else {
+				ledPattern = IdleLEDPattern;
+			}
 		}
 	}
+}
+
+
+extern void ChangeLEDStatus	(uint16_t patternRed, uint16_t patternGreen, uint16_t patternYellow, uint8_t duration)
+{
+	tStatusLEDParam* ledPattern = pvPortMalloc(sizeof(tStatusLEDParam));
+	ledPattern->red = patternRed;
+	ledPattern->green = patternGreen;
+	ledPattern->yellow = patternYellow;
+	ledPattern->duration = duration;
+	xQueueSend(*pStatusLEDQ, &ledPattern, 0);
 }
 
 
